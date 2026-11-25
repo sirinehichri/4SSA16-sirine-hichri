@@ -229,3 +229,5 @@ pipeline {
 **ESPRIT — UP ASI**  Test auto Wed Nov 25 10:51:24 CET 2026
 Test auto Wed Nov 25 11:13:25 CET 2026
 Test auto Wed Nov 25 11:18:06 CET 2026
+Test auto Wed Nov 25 11:25:09 CET 2026
+Test automa Wed Nov 25 11:26:26 CET 2026
