@@ -5,6 +5,7 @@ pipeline {
         IMAGE_NAME = 'sirinehichri/backend'
         IMAGE_TAG  = "${BUILD_NUMBER}"
     }
+    
 
     stages {
         stage('Checkout') {
