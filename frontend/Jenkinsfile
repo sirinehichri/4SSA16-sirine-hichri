@@ -1,36 +1,87 @@
 pipeline {
     agent any
+
+    environment {
+        IMAGE_NAME = 'sirinehichri/frontend'
+        IMAGE_TAG  = "${BUILD_NUMBER}"
+    }
+
     stages {
         stage('Checkout') {
-            steps { checkout scm }
-        }
-        stage('Install Dependencies') {
             steps {
-                dir('frontend') { sh 'npm install' }
+                checkout scm
             }
         }
-        stage('Build') {
+
+        stage('Install') {
             steps {
-                dir('frontend') { sh 'npm run build' }
-            }
-        }
-        stage('Docker Build') {
-            steps {
-                sh 'docker build -t linamaalla/gestion-projets-frontend:latest frontend'
-            }
-        }
-        stage('Docker Push') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-                    sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
-                    sh 'docker push linamaalla/gestion-projets-frontend:latest'
+                dir('frontend') {
+                    sh 'npm ci'
                 }
             }
         }
-        stage('Archive') {
+
+        stage('Test') {
             steps {
-                archiveArtifacts artifacts: 'frontend/dist/**', fingerprint: true
+                dir('frontend') {
+                    sh 'npm test -- --watch=false --browsers=ChromeHeadless'
+                }
             }
         }
+
+        stage('Build') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build -- --configuration production'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('frontend') {
+                    script {
+                        def scannerHome = tool 'SonarScanner'
+                        withSonarQubeEnv('SonarQube') {
+                            sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=4SSA16-sirine-hichri-frontend -Dsonar.sources=src"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('frontend') {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest ."
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${IMAGE_NAME}:latest
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'frontend/dist/**', fingerprint: true, allowEmptyArchive: true
+            }
+        }
+    }
+
+    post {
+        success { echo 'Pipeline frontend OK' }
+        failure { echo 'Pipeline frontend en échec' }
     }
 }
